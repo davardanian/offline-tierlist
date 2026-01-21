@@ -1,0 +1,21 @@
+{
+  "title": "Yerevan Restaurants Tier List",
+  "rows": [
+    {
+      "name": "S",
+      "color": "#ff6666",
+      "imgs": [
+        {
+          "src": "data:image/webp;base64,YOUR_BASE64_IMAGE_DATA_HERE",
+          "name": "Restaurant Name Here"
+        }
+      ]
+    }
+  ],
+  "untiered": [
+    {
+      "src": "data:image/webp;base64,YOUR_BASE64_IMAGE_DATA_HERE",
+      "name": "Restaurant Name Here"
+    }
+  ]
+}
