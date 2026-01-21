@@ -71,12 +71,47 @@ function reset_row(row) {
 function hard_reset_list() {
 	tierlist_div.innerHTML = '';
 	untiered_images.innerHTML = '';
+	update_untiered_count();
 }
 
 // Places back all the tierlist content into the untiered pool.
 function soft_reset_list() {
 	tierlist_div.querySelectorAll('.row').forEach(reset_row);
 	unsaved_changes = true;
+	update_untiered_count();
+}
+
+// Updates the display of untiered items count
+function update_untiered_count() {
+	if (!untiered_images) {
+		return;
+	}
+	// Count all item containers first (new format)
+	let item_containers = untiered_images.querySelectorAll('.item-container');
+	let count = item_containers.length;
+	
+	// If no item containers found, count draggable images directly (old format)
+	// But exclude any that are already inside item containers to avoid double counting
+	if (count === 0) {
+		let draggable_imgs = untiered_images.querySelectorAll('img.draggable');
+		draggable_imgs.forEach((img) => {
+			// Only count if it's not inside an item-container
+			if (!img.closest('.item-container')) {
+				count++;
+			}
+		});
+	}
+	
+	let count_display = document.getElementById('untiered-count');
+	if (count_display) {
+		if (count === 0) {
+			count_display.textContent = '';
+		} else if (count === 1) {
+			count_display.textContent = '(1 item remaining)';
+		} else {
+			count_display.textContent = `(${count} items remaining)`;
+		}
+	}
 }
 
 window.addEventListener('load', () => {
@@ -105,6 +140,7 @@ window.addEventListener('load', () => {
 				let item_container = create_item_with_src_and_name(load_evt.target.result, name);
 				images.appendChild(item_container);
 				unsaved_changes = true;
+				update_untiered_count();
 			});
 			reader.readAsDataURL(file);
 		}
@@ -124,6 +160,7 @@ window.addEventListener('load', () => {
 					let item_container = create_item_with_src_and_name(load_evt.target.result, '');
 					images.appendChild(item_container);
 					unsaved_changes = true;
+					update_untiered_count();
 				};
 				reader.readAsDataURL(blob);
 			}
@@ -172,7 +209,11 @@ window.addEventListener('load', () => {
 		return msg;
 	});
 
-	void try_load_tierlist_json();
+	void try_load_tierlist_json().then(() => {
+		update_untiered_count();
+	}).catch(() => {
+		update_untiered_count();
+	});
 });
 
 function create_img_with_src(src) {
@@ -369,6 +410,7 @@ function load_tierlist(serialized_tierlist) {
 	resize_headers();
 
 	unsaved_changes = false;
+	update_untiered_count();
 }
 
 function rgb_to_hex(r, g, b) {
@@ -631,6 +673,7 @@ function make_accept_drop(elem) {
 		}
 
 		unsaved_changes = true;
+		update_untiered_count();
 	});
 }
 
@@ -809,6 +852,7 @@ function rm_row(idx) {
 	let row = tierlist_div.children[idx];
 	reset_row(row);
 	tierlist_div.removeChild(row);
+	update_untiered_count();
 }
 
 function recompute_header_colors(idx) {
@@ -856,6 +900,7 @@ function bind_trash_events() {
 				containing_tr.removeChild(dragged_image_parent);
 			}
 			dragged_image.remove();
+			update_untiered_count();
 		}
 	});
 }

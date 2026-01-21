@@ -140,7 +140,7 @@ img.draggable {
 	margin: 2px;
 }
 
-.item-label {
+.item-container .item-label {
 	color: #ddd;
 	font-size: 11px;
 	text-align: center;
@@ -150,6 +150,11 @@ img.draggable {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	line-height: 1.2;
+	display: block;
+	min-width: auto;
+	min-height: auto;
+	flex-flow: initial;
+	align-items: initial;
 }
 
 img.draggable:hover, .button:hover {
