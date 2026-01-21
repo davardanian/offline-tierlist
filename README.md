@@ -1,6 +1,6 @@
 ### Offline Tierlist Maker
 
-You can play with the latest version at [silverweed.github.io/tiers](https://silverweed.github.io/tiers), or you can download the repository and open `index.html` in your browser (in both cases, all the logic is run locally on your browser).
+You can play with the latest version at [davardanian.github.io/offline-tierlist](https://davardanian.github.io/offline-tierlist/), or you can download the repository and open `index.html` in your browser (in both cases, all the logic is run locally on your browser).
 
 #### Features
 - Give a title to your tierlist
