@@ -69,8 +69,13 @@ function reset_row(row) {
 // Removes all rows from the tierlist, alongside their content.
 // Also empties the untiered images.
 function hard_reset_list() {
-	tierlist_div.innerHTML = '';
-	untiered_images.innerHTML = '';
+	// Use safer DOM manipulation instead of innerHTML
+	while (tierlist_div.firstChild) {
+		tierlist_div.removeChild(tierlist_div.firstChild);
+	}
+	while (untiered_images.firstChild) {
+		untiered_images.removeChild(untiered_images.firstChild);
+	}
 	update_untiered_count();
 }
 
@@ -133,34 +138,75 @@ window.addEventListener('load', () => {
 		// @Speed: maybe we can do some async stuff to optimize this
 		let images = document.querySelector('.images');
 		for (let file of evt.target.files) {
+			// Validate file type
+			if (!file.type.startsWith('image/')) {
+				console.warn(`Skipping non-image file: ${file.name}`);
+				continue;
+			}
+			
+			// Validate file size (limit to 10MB to prevent memory issues)
+			const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+			if (file.size > MAX_FILE_SIZE) {
+				alert(`File ${file.name} is too large (max 10MB). Skipping.`);
+				continue;
+			}
+			
 			let reader = new FileReader();
 			reader.addEventListener('load', (load_evt) => {
-				// Extract name from filename (remove extension)
-				let name = file.name.replace(/\.[^/.]+$/, '');
-				let item_container = create_item_with_src_and_name(load_evt.target.result, name);
-				images.appendChild(item_container);
-				unsaved_changes = true;
-				update_untiered_count();
+				try {
+					// Extract name from filename (remove extension)
+					let name = file.name.replace(/\.[^/.]+$/, '');
+					// Sanitize name to prevent XSS
+					name = name.substring(0, MAX_NAME_LEN).replace(/[<>]/g, '');
+					let item_container = create_item_with_src_and_name(load_evt.target.result, name);
+					images.appendChild(item_container);
+					unsaved_changes = true;
+					update_untiered_count();
+				} catch (e) {
+					console.error("Error processing image:", e);
+					alert(`Failed to load image ${file.name}`);
+				}
+			});
+			reader.addEventListener('error', () => {
+				alert(`Failed to read file: ${file.name}`);
 			});
 			reader.readAsDataURL(file);
 		}
+		// Reset input to allow selecting the same file again
+		evt.target.value = '';
 	});
 
 	// Allow copy-pasting image from clipboard
 	document.onpaste = (evt) => {
-		let clip_data = evt.clipboardData || evt.originalEvent.clipboardData;
+		let clip_data = evt.clipboardData || evt.originalEvent?.clipboardData;
+		if (!clip_data) return;
+		
 		let items = clip_data.items;
 		let images = document.querySelector('.images');
 		for (let item of items) {
-			if (item.kind === 'file') {
+			if (item.kind === 'file' && item.type.startsWith('image/')) {
 				let blob = item.getAsFile();
+				// Validate file size
+				const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+				if (blob.size > MAX_FILE_SIZE) {
+					alert('Pasted image is too large (max 10MB). Skipping.');
+					continue;
+				}
+				
 				let reader = new FileReader();
 				reader.onload = (load_evt) => {
-					// Pasted images don't have names, use empty string
-					let item_container = create_item_with_src_and_name(load_evt.target.result, '');
-					images.appendChild(item_container);
-					unsaved_changes = true;
-					update_untiered_count();
+					try {
+						// Pasted images don't have names, use empty string
+						let item_container = create_item_with_src_and_name(load_evt.target.result, '');
+						images.appendChild(item_container);
+						unsaved_changes = true;
+						update_untiered_count();
+					} catch (e) {
+						console.error("Error processing pasted image:", e);
+					}
+				};
+				reader.onerror = () => {
+					alert('Failed to read pasted image');
 				};
 				reader.readAsDataURL(blob);
 			}
@@ -176,7 +222,13 @@ window.addEventListener('load', () => {
 	document.getElementById('export-input').addEventListener('click', () => {
 		let name = prompt('Please give a name to this tierlist');
 		if (name) {
-			save_tierlist(`${name}.json`);
+			// Sanitize filename to prevent directory traversal and invalid characters
+			name = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '').substring(0, 200);
+			if (name) {
+				save_tierlist(`${name}.json`);
+			} else {
+				alert('Invalid filename');
+			}
 		}
 	});
 
@@ -187,14 +239,22 @@ window.addEventListener('load', () => {
 		let file = evt.target.files[0];
 		let reader = new FileReader();
 		reader.addEventListener('load', (load_evt) => {
-			let raw = load_evt.target.result;
-			let parsed = JSON.parse(raw);
-			if (!parsed) {
-				alert("Failed to parse data");
-				return;
+			try {
+				let raw = load_evt.target.result;
+				let parsed = JSON.parse(raw);
+				if (!parsed || typeof parsed !== 'object') {
+					alert("Failed to parse data: Invalid JSON format");
+					return;
+				}
+				hard_reset_list();
+				load_tierlist(parsed);
+			} catch (e) {
+				alert("Failed to parse data: " + (e.message || "Invalid JSON"));
+				console.error("JSON parse error:", e);
 			}
-			hard_reset_list();
-			load_tierlist(parsed);
+		});
+		reader.addEventListener('error', () => {
+			alert("Failed to read file");
 		});
 		reader.readAsText(file);
 	});
@@ -222,7 +282,9 @@ function create_img_with_src(src) {
 	img.style.userSelect = 'none';
 	img.classList.add('draggable');
 	img.draggable = true;
-	img.ondragstart = "event.dataTransfer.setData('text/plain', null)";
+	img.ondragstart = (evt) => {
+		evt.dataTransfer.setData('text/plain', null);
+	};
 	img.addEventListener('mousedown', (evt) => {
 		dragged_image = evt.target;
 		dragged_image.classList.add("dragged");
@@ -234,6 +296,11 @@ function create_img_with_src(src) {
 }
 
 function create_item_with_src_and_name(src, name) {
+	// Validate and sanitize inputs
+	if (!src || typeof src !== 'string') {
+		throw new Error('Invalid image source');
+	}
+	
 	// Create container for image and label
 	let container = document.createElement('div');
 	container.classList.add('item-container');
@@ -244,12 +311,23 @@ function create_item_with_src_and_name(src, name) {
 	img.style.userSelect = 'none';
 	img.classList.add('draggable');
 	img.draggable = true;
-	img.ondragstart = "event.dataTransfer.setData('text/plain', null)";
+	img.ondragstart = (evt) => {
+		evt.dataTransfer.setData('text/plain', null);
+	};
+	
+	// Add error handling for broken images
+	img.onerror = function() {
+		console.error('Failed to load image:', src.substring(0, 50) + '...');
+		this.style.border = '2px solid red';
+		this.alt = 'Failed to load image';
+	};
 	
 	// Create label for restaurant name
 	let label = document.createElement('span');
 	label.classList.add('item-label');
-	label.textContent = name || '';
+	// Sanitize name to prevent XSS
+	let sanitizedName = (name || '').substring(0, MAX_NAME_LEN).replace(/[<>]/g, '');
+	label.textContent = sanitizedName;
 	label.style.userSelect = 'none';
 	
 	// Add mousedown handler to the image for dragging
@@ -298,7 +376,7 @@ function save_tierlist(filename) {
 		let color_hex = rgb_to_hex(r_value, g_value, b_value);
 
 		serialized_tierlist.rows.push({
-			name: row.querySelector('.header label').innerText.substr(0, MAX_NAME_LEN),
+			name: row.querySelector('.header label').innerText.substring(0, MAX_NAME_LEN),
 			color: color_hex
 		});
 		serialized_tierlist.rows[i].imgs = [];
@@ -719,7 +797,7 @@ function enable_edit_on_click(container, input, label, row_color_input) {
 			change_label();
 		} else {
 			label.style.display = 'none';
-			input.value = label.innerText.substr(0, MAX_NAME_LEN);
+			input.value = label.innerText.substring(0, MAX_NAME_LEN);
 			input.style.display = 'inline';
 			input.style.textAlign = "center";
 			input.select();
@@ -936,10 +1014,19 @@ async function try_load_tierlist_json () {
 	const load_from_url = new URLSearchParams(window.location.search).get('url');
 	if (load_from_url !== null && is_url(load_from_url)) {
 		try {
-			let result = await fetch(load_from_url);
-			result = await result.json();
+			let response = await fetch(load_from_url);
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+			let result = await response.json();
+			if (!result || typeof result !== 'object') {
+				throw new Error("Invalid JSON format");
+			}
 			hard_reset_list();
 			load_tierlist(result);
-		} catch (e) { console.error(e); }
+		} catch (e) {
+			console.error("Failed to load tierlist from URL:", e);
+			alert("Failed to load tierlist: " + (e.message || "Unknown error"));
+		}
 	}
 }
