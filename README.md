@@ -13,7 +13,7 @@ You can play with the latest version at [davardanian.github.io/offline-tierlist]
 
 #### Yerevan Restaurants Data
 
-This repository includes a pre-populated tierlist with **724 unique restaurants from Yerevan, Armenia**, collected from Glovo and buy.am delivery platforms. The data is available in `data/restaurant_tierlist.json` and includes:
+This repository includes a pre-populated tierlist with **500+ unique restaurants from Yerevan, Armenia**, collected from Glovo and buy.am delivery platforms. The data is available in `data/restaurant_tierlist.json` and includes:
 
 - Restaurant logos (embedded as base64-encoded images)
 - Restaurant names displayed below each logo
