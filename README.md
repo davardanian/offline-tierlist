@@ -1,7 +1,5 @@
 ### Offline Tierlist Maker
 
-This is a simple webpage that allows creating custom "[Tierlists](https://knowyourmeme.com/memes/tier-lists)".
-
 You can play with the latest version at [silverweed.github.io/tiers](https://silverweed.github.io/tiers), or you can download the repository and open `index.html` in your browser (in both cases, all the logic is run locally on your browser).
 
 #### Features
